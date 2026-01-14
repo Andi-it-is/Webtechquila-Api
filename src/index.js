@@ -54,11 +54,9 @@ appRouter.get(`${baseURL}/hello`, async (req, res) => {
 
 
 /**
- * TODO create a reservation with the user's input
- * TODO create a checkoutAttempt and associate the Attempt to the previous reservation. 
- * TODO return the uuid from the checkoutAttempt or the entire URL, so the user can go to: url/reservation/checkout?aid=myUUID123?!?
-*/
-appRouter.post(`${baseURL}/reserve`, async (req, res) => {
+ * * Function to send all available Timeslots from a given date
+ */
+appRouter.post(`${baseURL}/timeslots`, async (req, res) => {
 
   const schema = Joi.object({
     guests: Joi.number().required(),
@@ -68,23 +66,55 @@ appRouter.post(`${baseURL}/reserve`, async (req, res) => {
   try {
     const body = await schema.validateAsync(req.body)
 
-    const aaa = await reservationModel.findAll({
-      // include: [
-      //   {
-      //     model: checkoutAttemptModel,
-      //     as: 'checkout_attempt'
-      //   },
-      //   {
-      //     model: tableModel,
-      //     as: 'table'
-      //   }
-      // ]
+    const availableSlots = await reservationModel.find({
+      guests: body.guests,
+      date: body.date
     })
 
-    console.log("valider body ", body)
+    res.status(200).json({
+      message: availableSlots
+    })
+
+  } catch (err) {
+    res.status(500).json({
+      message: err
+    })
+  }
+
+})
+
+
+/**
+ * TODO create a reservation with the user's input
+ * TODO create a checkoutAttempt and associate the Attempt to the previous reservation. 
+ * TODO return the uuid from the checkoutAttempt or the entire URL, so the user can go to: url/reservation/checkout?aid=myUUID123?!?
+*/
+appRouter.post(`${baseURL}/reserve`, async (req, res) => {
+
+  const schema = Joi.object({
+    guests: Joi.number().required(),
+    date: Joi.string().length(10).required(),
+    startTime: Joi.string().length(5).required()
+  }).required()
+
+  try {
+    const body = await schema.validateAsync(req.body)
+
+    const reservation = await reservationModel.create({
+      guests: body.guests,
+      date: body.date,
+      time: body.startTime,
+      prefferedSeat: false,
+      cancelled: false,
+      tableId: 1,
+
+    })
+
+
+    // ? TODO auto-determine the next available tableId, to not hurt null-constraint
 
     res.status(200).json({
-      message: aaa
+      message: reservation
     })
 
   } catch (err) {
