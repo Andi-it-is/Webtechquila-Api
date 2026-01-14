@@ -12,10 +12,6 @@ const sequelize = new Sequelize(
 );
 
 module.exports = {
-  sequelize
-}
-
-module.exports = {
   sequelize,
   development: {
     username: process.env.DB_USER,

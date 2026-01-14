@@ -2,20 +2,42 @@
  * Minimal Backend for Webtechnology
  */
 
+
 // Express related Imports
 const express = require('express')
 const appRouter = express()
 const port = 4000
 
-const baseURL = '/api/webtechapp/v1/'
+const baseURL = '/api/webtechapp/v1'
 
 // Sequelize/Database related Imports
 const { sequelize } = require('../config/config')
+// sequelize.authenticate()
+//   .then(() => console.log("database connected"))
+//   .catch(err => console.log("Error" + err))
+
+// sequelize.sync()
+
+
+// setting CORS options
+const cors = require('cors')
+let corsOptions = {
+  origin: 'http://localhost:9000',
+  optionSuccessStatus: 200,
+  methods: ['GET', 'PUT', 'POST', 'DELETE']
+}
+appRouter.use(cors(corsOptions))
+appRouter.use(express.json())
+
+// Joi for validating request's input
+const Joi = require('joi')
+const { reservationModel } = require('../models')
+
 
 /**
  * route to test api
  */
-appRouter.get(`${baseURL}hello`, async (req, res) => {
+appRouter.get(`${baseURL}/hello`, async (req, res) => {
 
   try {
     await sequelize.authenticate();
@@ -33,8 +55,30 @@ appRouter.get(`${baseURL}hello`, async (req, res) => {
  * TODO create a checkoutAttempt and associate the Attempt to the previous reservation. 
  * TODO return the uuid from the checkoutAttempt or the entire URL, so the user can go to: url/reservation/checkout?aid=myUUID123?!?
 */
-appRouter.post(`${baseURL}`, (req, res) => {
-  res.send('111')
+appRouter.post(`${baseURL}/reserve`, async (req, res) => {
+
+  console.log(req.body)
+
+  const schema = Joi.object({
+    guests: Joi.number().required(),
+    date: Joi.string().length(10).required(),
+  }).required()
+
+  try {
+    const body = await schema.validateAsync(req.body)
+
+    const aaa = await reservationModel.findAll()
+    console.log("valider body ", body)
+    res.status(200).json({
+      message: aaa
+    })
+
+  } catch (err) {
+    res.status(500).json({
+      message: "Kaputt"
+    })
+  }
+
 })
 
 

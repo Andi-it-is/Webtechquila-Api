@@ -1,5 +1,5 @@
 const sequelize = require('sequelize')
-const db = require('../../config/config');
+const db = require('../index')
 const checkoutAttempt = require('./CheckoutAttempt');
 
 const reservation = db.define("reservation", {

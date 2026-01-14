@@ -1,5 +1,5 @@
 const sequelize = require('sequelize')
-const db = require('../../config/config');
+const db = require('../index')
 
 const table = db.define("table", {
 
