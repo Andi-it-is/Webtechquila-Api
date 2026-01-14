@@ -114,9 +114,6 @@ Object.keys(models).forEach(async (modelName) => {
     Logger.error(`Unable to sync ${dbName} DB : ${error}`)
   }
 }) */
-module.exports = models
 
-module.exports = {
-  dbs
-}
+module.exports = models
 

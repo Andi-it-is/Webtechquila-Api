@@ -17,7 +17,10 @@ const { sequelize } = require('../config/config')
 //   .catch(err => console.log("Error" + err))
 
 // sequelize.sync()
-
+const models = require('../models')
+const reservationModel = models.reservation
+const checkoutAttemptModel = models.checkout_attempt
+const tableModel = models.table
 
 // setting CORS options
 const cors = require('cors')
@@ -31,7 +34,7 @@ appRouter.use(express.json())
 
 // Joi for validating request's input
 const Joi = require('joi')
-const { reservationModel } = require('../models')
+const CheckoutAttempt = require('../models/WebtechDatabase/CheckoutAttempt')
 
 
 /**
@@ -57,8 +60,6 @@ appRouter.get(`${baseURL}/hello`, async (req, res) => {
 */
 appRouter.post(`${baseURL}/reserve`, async (req, res) => {
 
-  console.log(req.body)
-
   const schema = Joi.object({
     guests: Joi.number().required(),
     date: Joi.string().length(10).required(),
@@ -67,15 +68,17 @@ appRouter.post(`${baseURL}/reserve`, async (req, res) => {
   try {
     const body = await schema.validateAsync(req.body)
 
-    const aaa = await reservationModel.findAll()
+    const aaa = await tableModel.findAll()
+
     console.log("valider body ", body)
+
     res.status(200).json({
       message: aaa
     })
 
   } catch (err) {
     res.status(500).json({
-      message: "Kaputt"
+      message: err
     })
   }
 
