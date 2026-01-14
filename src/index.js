@@ -1,16 +1,29 @@
 /**
  * Minimal Backend for Webtechnology
  */
+
+// Express related Imports
 const express = require('express')
 const appRouter = express()
 const port = 4000
 
 const baseURL = '/api/webtechapp/v1/'
 
+// Sequelize/Database related Imports
+const { sequelize } = require('../config/config')
+
 /**
  * route to test api
  */
-appRouter.get(`${baseURL}hello`, (req, res) => {
+appRouter.get(`${baseURL}hello`, async (req, res) => {
+
+  try {
+    await sequelize.authenticate();
+    console.log('Connection has been established successfully. Welcome to the Database');
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+  }
+
   res.send('Hello World!')
 })
 
