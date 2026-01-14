@@ -15,7 +15,7 @@ module.exports = {
     })
 
     // referencing reservation to table
-    await queryInterface.addColumn('reservation', 'table', {
+    await queryInterface.addColumn('reservation', 'tableId', {
       type: Sequelize.INTEGER,
       allowNull: true,
       references: {

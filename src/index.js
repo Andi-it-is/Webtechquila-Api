@@ -11,7 +11,7 @@ const port = 4000
 const baseURL = '/api/webtechapp/v1'
 
 // Sequelize/Database related Imports
-const { sequelize } = require('../config/config')
+// const { sequelize } = require('../config/config')
 // sequelize.authenticate()
 //   .then(() => console.log("database connected"))
 //   .catch(err => console.log("Error" + err))
@@ -68,7 +68,18 @@ appRouter.post(`${baseURL}/reserve`, async (req, res) => {
   try {
     const body = await schema.validateAsync(req.body)
 
-    const aaa = await tableModel.findAll()
+    const aaa = await reservationModel.findAll({
+      // include: [
+      //   {
+      //     model: checkoutAttemptModel,
+      //     as: 'checkout_attempt'
+      //   },
+      //   {
+      //     model: tableModel,
+      //     as: 'table'
+      //   }
+      // ]
+    })
 
     console.log("valider body ", body)
 
