@@ -17,7 +17,7 @@ const baseURL = '/api/webtechapp/v1'
 //   .catch(err => console.log("Error" + err))
 
 // sequelize.sync()
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const models = require('../models')
 const reservationModel = models.reservation
 const checkoutAttemptModel = models.checkout_attempt
@@ -36,7 +36,8 @@ appRouter.use(express.json())
 // Joi for validating request's input
 const Joi = require('joi')
 const CheckoutAttempt = require('../models/WebtechDatabase/CheckoutAttempt')
-const { toIsoDate, buildTimeslots, removeTimeRange, removeBlockedRange } = require('./helpers')
+const { toIsoDate, buildTimeslots, removeTimeRange, removeBlockedRange } = require('./helpers');
+const Logger = require('../logger/logger');
 
 
 /**
@@ -61,7 +62,7 @@ appRouter.get(`${baseURL}/hello`, async (req, res) => {
 appRouter.post(`${baseURL}/timeslots`, async (req, res) => {
 
   const schema = Joi.object({
-    guests: Joi.number().required(),
+    guests: Joi.number().required().max(8),
     date: Joi.string().length(10).required(),
   }).required()
 
@@ -122,8 +123,7 @@ appRouter.post(`${baseURL}/timeslots`, async (req, res) => {
       })
     })
 
-    // ! Optimierungsproblem: Tisch mit möglichst passender capacity/guest Zahl und den meisten verfügbaren Timeslots.
-
+    // ! Optimization problem: Find table with 1) fitting guests and 2) most available timeslots
     // determine every table that fits the wished amount of guests
     const sizeFittingTables = freeSlots.filter((table) => {
       return table.capacity - body.guests >= 0
@@ -166,51 +166,144 @@ appRouter.post(`${baseURL}/timeslots`, async (req, res) => {
 
 
 /**
- * TODO create a reservation with the user's input
- * TODO create a checkoutAttempt and associate the Attempt to the previous reservation. 
- * TODO return the uuid from the checkoutAttempt or the entire URL, so the user can go to: url/reservation/checkout?aid=myUUID123?!?
+ * * Limitation: on api-level, multiple reservations can be set for the same/overlapping date + time ranges
+ * * Function to do the following:
+ *  create a reservation with the user's input
+ *  create a checkoutAttempt and associate the Attempt to the previous reservation. 
+ *  return the uuid from the checkoutAttempt or the entire URL, so the user can go to: url/reservation/checkout?aid=myUUID123?!?
 */
-appRouter.post(`${baseURL}/reserve`, async (req, res) => {
+appRouter.post(`${baseURL}/init/reservation`, async (req, res) => {
 
   const schema = Joi.object({
     guests: Joi.number().required(),
     date: Joi.string().length(10).required(),
-    startTime: Joi.string().length(5).required(),
-    prefferedSeat: Joi.boolean().required(),
-    tableId: Joi.number().allow(null).required(),
+    time: Joi.string().length(5).required(),
 
-
+    tableId: Joi.number().optional().allow(null),
+    bestFit: Joi.object({
+      tableId: Joi.number(),
+      capacity: Joi.number(),
+      selectedTimeSlot: Joi.string().length(5)
+    }).allow(null)
   }).required()
 
   try {
+
     const body = await schema.validateAsync(req.body)
 
-    if (!body.prefferedSeat) {
-      console.log("---")  // auto-determine the next available tableId, to not hurt null-constraint
+    body.date = toIsoDate(body.date)
+
+    // * no tableId is passed, the user set no preference => use bestFit
+    if (!body.tableId) {
+
+      Logger.debug("create Checkout Attempt, no tableId is passed")
+      // 1 create reservation
+      const reservation = await reservationModel.create({
+        guests: body.guests,
+        date: body.date,
+        time: body.time,
+        prefferedSeat: false,
+        cancelled: false,
+        tableId: body.bestFit.tableId
+      })
+
+      const expireDate = new Date(Date.now() + 15 * 60 * 1000);
+
+      // 2 create checkout attempt
+      const checkoutAttempt = await checkoutAttemptModel.create({
+        isEmailConfirmed: false,
+        expiresAt: expireDate,
+      })
+
+      // 3 and associate the previous reservation with this checkout
+      await reservation.update({
+        checkoutAttemptId: checkoutAttempt.checkoutAttemptId
+      });
+
+      const attemptId = reservation.checkoutAttemptId
+
+      res.status(200).json({
+        aid: attemptId,
+      })
+
+      Logger.info("successfully created Checkout Attempt (with no tableId)")
+
+    } else {
+
+      Logger.debug(`create Checkout Attempt, using tableId ${body.tableId}`)
+
+      // 1 create reservation
+      const reservation = await reservationModel.create({
+        guests: body.guests,
+        date: body.date,
+        time: body.time,
+        prefferedSeat: true,
+        cancelled: false,
+        tableId: body.tableId
+      })
+
+      const expireDate = new Date(Date.now() + 15 * 60 * 1000);
+
+      // 2 create checkout attempt
+      const checkoutAttempt = await checkoutAttemptModel.create({
+        isEmailConfirmed: false,
+        expiresAt: expireDate,
+      })
+
+      // 3 and associate the previous reservation with this checkout
+      await reservation.update({
+        checkoutAttemptId: checkoutAttempt.checkoutAttemptId
+      });
+
+      const attemptId = reservation.checkoutAttemptId
+
+      res.status(200).json({
+        aid: attemptId,
+      })
     }
 
-    const reservation = await reservationModel.create({
-      guests: body.guests,
-      date: body.date,
-      startTime: body.startTime,
-      prefferedSeat: false,
-      cancelled: false,
-      tableId: 1,
-
-    })
-
-    res.status(200).json({
-      message: reservation
-    })
-
   } catch (err) {
+
+    Logger.error(`error: ${err}`)
     res.status(500).json({
       message: err
     })
   }
 
+
 })
 
+/**
+ * TODO route to get reservation data based on the checkoutAttemptId/aid.
+ * * used within the checkout Page, since Vue Store is dogshit
+ */
+appRouter.get(`${baseURL}/reservation`, async (req, res) => {
+
+  const schema = Joi.object({
+    aid: Joi.string()
+  })
+
+  try {
+
+    const param = await schema.validateAsync(req.query)
+
+    const reservation = await reservationModel.findOne({
+      where: {
+        checkoutAttemptId: param.aid
+      }
+    })
+
+    res.status(200).json({
+      reservation: reservation,
+    })
+
+  } catch (err) {
+    Logger.error(`fehler ${err}`)
+    res.status(500).json({
+      message: err,
+    })
+  }
+})
 
 /**
  * TODO route to confirm a checkout Attempt.(Sends additional Confirmation email)
@@ -233,20 +326,6 @@ appRouter.get(`${baseURL}`, (req, res) => {
  */
 appRouter.get(`${baseURL}`, (req, res) => {
   res.send('333')
-})
-
-
-
-/** 
- * ! really important route (towards the end). Dont fuck this up !
- * * How to properly calculate avaible timeslots/tables etc.
- * TODO route to get every available table for the given Date.
- * * A Timeslot has a duration of 2 hours. A Timeslot (and therefore a table) is available
- * * 
- * 
- */
-appRouter.get(`${baseURL}`, (req, res) => {
-  res.send('444')
 })
 
 

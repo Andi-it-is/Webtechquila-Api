@@ -56,6 +56,7 @@ module.exports = (sequelize, DataTypes) => {
     // primary key
     checkoutAttemptId: {
       type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
 
