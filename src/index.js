@@ -72,6 +72,7 @@ appRouter.post(`${baseURL}/timeslots`, async (req, res) => {
     // cast german date to iso 8601
     const isoDate = toIsoDate(body.date)
 
+    // ! only check with email-confirmed Reservations 
     const allReservations = await reservationModel.findAll({
       where: {
         date: isoDate
@@ -123,7 +124,7 @@ appRouter.post(`${baseURL}/timeslots`, async (req, res) => {
       })
     })
 
-    // ! Optimization problem: Find table with 1) fitting guests and 2) most available timeslots
+    // ! Optimization problem: Find table with 1) best amount of fitting guests and 2) most available timeslots
     // determine every table that fits the wished amount of guests
     const sizeFittingTables = freeSlots.filter((table) => {
       return table.capacity - body.guests >= 0
@@ -280,7 +281,7 @@ appRouter.post(`${baseURL}/init/reservation`, async (req, res) => {
 appRouter.get(`${baseURL}/reservation`, async (req, res) => {
 
   const schema = Joi.object({
-    aid: Joi.string()
+    aid: Joi.string().uuid()
   })
 
   try {
@@ -290,7 +291,7 @@ appRouter.get(`${baseURL}/reservation`, async (req, res) => {
     const reservation = await reservationModel.findOne({
       where: {
         checkoutAttemptId: param.aid
-      }
+      },
     })
 
     res.status(200).json({
