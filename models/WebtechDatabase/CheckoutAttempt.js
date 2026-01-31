@@ -83,5 +83,11 @@ module.exports = (sequelize, DataTypes) => {
     freezeTableName: true
   })
 
+  checkoutAttempt.associate = function (models) {
+    checkoutAttempt.hasOne(models.reservation, {
+      foreignKey: 'checkoutAttemptId',
+    })
+  }
+
   return checkoutAttempt
 }

@@ -288,14 +288,23 @@ appRouter.get(`${baseURL}/reservation`, async (req, res) => {
 
     const param = await schema.validateAsync(req.query)
 
-    const reservation = await reservationModel.findOne({
-      where: {
-        checkoutAttemptId: param.aid
+    // Logger.debug("oben reservation.   und unten checkoutAttempt")
+    // Logger.debug(reservationModel.associations)
+    // Logger.debug(checkoutAttemptModel.associations)
+
+    //* checkoutAttempt joined with reservation
+    const reservation = await checkoutAttemptModel.findOne({
+      include: {
+        model: reservationModel,
+        required: true,
+        where: {
+          checkoutAttemptId: param.aid
+        }
       },
     })
 
     res.status(200).json({
-      reservation: reservation,
+      data: reservation,
     })
 
   } catch (err) {
