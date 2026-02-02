@@ -36,9 +36,12 @@ appRouter.use(express.json())
 // Joi for validating request's input
 const Joi = require('joi')
 const CheckoutAttempt = require('../models/WebtechDatabase/CheckoutAttempt')
-const { toIsoDate, buildTimeslots, removeTimeRange, removeBlockedRange } = require('./helpers');
+// Logger module
 const Logger = require('../logger/logger');
 
+// custom functions and modules
+const { toIsoDate, buildTimeslots, removeBlockedRange } = require('./helpers');
+const { sendAuthReservationURL, sendConfirmedReservation } = require('./nodemailer')
 
 /**
  * route to test api
@@ -275,7 +278,7 @@ appRouter.post(`${baseURL}/init/reservation`, async (req, res) => {
 })
 
 /**
- * TODO route to get reservation data based on the checkoutAttemptId/aid.
+ * * route to get reservation data based on the checkoutAttemptId/aid.
  * * used within the checkout Page, since Vue Store is dogshit
  */
 appRouter.get(`${baseURL}/reservation`, async (req, res) => {
@@ -316,11 +319,121 @@ appRouter.get(`${baseURL}/reservation`, async (req, res) => {
 })
 
 /**
- * TODO route to confirm a checkout Attempt.(Sends additional Confirmation email)
+ * * Step 1 from the checkout process.
+ * @return Url to follow to, where the user validates the order
  */
-appRouter.get(`${baseURL}`, (req, res) => {
-  res.send('111 2')
+appRouter.post(`${baseURL}/init/checkoutAttempt`, async (req, res) => {
+
+  const schema = Joi.object({
+    firstName: Joi.string().required(),
+    lastName: Joi.string().required(),
+    email: Joi.string().required(),
+    tel: Joi.string().required(),
+    customerNote: Joi.string().allow(null).allow(''),
+
+    checkoutAttemptId: Joi.string().required(),
+  }).required()
+
+  try {
+
+    const body = await schema.validateAsync(req.body)
+
+    const reservationEntry = await reservationModel.findOne({
+      where: {
+        checkoutAttemptId: body.checkoutAttemptId
+      },
+    })
+
+    const reservation = await reservationEntry.update({
+
+      firstName: body.firstName,
+      lastName: body.lastName,
+      email: body.email,
+      tel: body.tel,
+      customerNote: body.customerNote,
+    })
+
+    // send email with the auth URL
+    // if smtp wont work, just send it with the body
+    // ! adjust with prod working infos
+    const url = `http://localhost:9000/#/order/confirm?rid=${reservation.reservationId}&aid=${reservationEntry.checkoutAttemptId}`
+    Logger.info("Sending Auth Reservation URL Mail")
+    const mail = await sendAuthReservationURL(url)
+
+    res.status(200).json({
+      success: true,
+      message: reservation,
+    })
+
+  }
+  catch (err) {
+    Logger.error(`fehler ${err}`)
+    res.status(500).json({
+      message: err,
+    })
+  }
 })
+
+
+/**
+ * * Step 2 from the checkout process.
+ * confirms the order and changes it in the db
+ */
+appRouter.get(`${baseURL}/confirm/checkoutAttempt`, async (req, res) => {
+
+  const schema = Joi.object({
+    rid: Joi.string().required(),
+    aid: Joi.string().uuid().required()
+  }).required()
+
+  try {
+
+    const params = await schema.validateAsync(req.query)
+
+    const reservation = await checkoutAttemptModel.findOne({
+      include: {
+        model: reservationModel,
+        required: true,
+        where: {
+          checkoutAttemptId: params.aid
+        }
+      },
+    })
+
+    const upd = await reservation.update({
+      isEmailConfirmed: true
+    })
+
+    const keyInformations = {
+      date: reservation.reservation.date,
+      time: reservation.reservation.time,
+      guests: reservation.reservation.guests,
+      tableId: reservation.reservation.tableId,
+      firstName: reservation.reservation.firstName,
+      lastName: reservation.reservation.lastName,
+      customerNote: reservation.reservation.customerNote
+    }
+
+    // ! send summary email
+    Logger.info("Sending Confirmed Reservation Mail")
+    const mail = await sendConfirmedReservation(keyInformations)
+
+
+    res.status(200).json({
+      success: true,
+      data: reservation,
+      key: keyInformations
+    })
+
+  }
+  catch (err) {
+    Logger.error(`fehler ${err}`)
+    res.status(500).json({
+      message: err,
+    })
+  }
+})
+
 
 
 /**
