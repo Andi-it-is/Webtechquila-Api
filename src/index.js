@@ -400,6 +400,12 @@ appRouter.get(`${baseURL}/confirm/checkoutAttempt`, async (req, res) => {
       },
     })
 
+    if (reservation.isEmailConfirmed) {
+      res.status(500).json({
+        message: "war schon validated"
+      })
+    }
+
     const upd = await reservation.update({
       isEmailConfirmed: true
     })

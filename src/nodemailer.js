@@ -1,5 +1,5 @@
-// Use at least Nodemailer v4.1.0
 const nodemailer = require('nodemailer');
+const ics = require('ics')
 
 async function sendAuthReservationURL(url) {
 
@@ -94,16 +94,43 @@ async function sendConfirmedReservation(data) {
       }
     });
 
+    // Create the ICS event
+
+    // Convert date/time to numbers for ICS
+    const [year, month, day] = data.date.split("-").map(Number);
+    const [hour, minute] = data.time.split(":").map(Number);
+
+    let icsFile;
+    ics.createEvent({
+      title: "Tischreservierung Webtechquila",
+      description: `Reservierung für ${data.firstName} ${data.lastName}, ${data.guests} Gäste, Tischnummer ${data.tableId}\nKundennotiz: ${data.customerNote}`,
+      busyStatus: "BUSY",
+      start: [year, month, day, hour, minute],
+      duration: { minutes: 120 }
+    }, (error, value) => {
+      if (error) {
+        console.log(error);
+        return;
+      }
+      icsFile = value
+    })
+
     const html = `
       <h2>Reservation Details</h2>
-      <ul>
-        <li><strong>Date:</strong> ${data.date}</li>
-        <li><strong>Time:</strong> ${data.time}</li>
-        <li><strong>Guests:</strong> ${data.guests}</li>
-        <li><strong>Table ID:</strong> ${data.tableId}</li>
-        <li><strong>Name:</strong> ${data.firstName} ${data.lastName}</li>
-        <li><strong>Customer Note:</strong> ${data.customerNote}</li>
-      </ul>
+      <div style="font-family: Arial, sans-serif; max-width:600px; margin:2rem auto; padding:2rem; background-color:#f9fafb; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+        <h2 style="color:#111827; text-align:center; margin-bottom:1rem;">Bestätigung deiner Reservierung</h2>
+        <p style="color:#4b5563; text-align:center; margin-bottom:2rem;">Danke, dass du bei Webtechquila reserviert hast! Hier sind die Details deiner Reservierung:</p>
+        <div style="background-color:#ffffff; padding:1.5rem; border-radius:6px; border:1px solid #e5e7eb;">
+          <ul style="list-style:none; padding:0; margin:0;">
+            <li style="margin-bottom:0.75rem; font-size:14px;"><strong>Datum:</strong> ${data.date}</li>
+            <li style="margin-bottom:0.75rem; font-size:14px;"><strong>Uhrzeit:</strong> ${data.time}</li>
+            <li style="margin-bottom:0.75rem; font-size:14px;"><strong>Gäste:</strong> ${data.guests}</li>
+            <li style="margin-bottom:0.75rem; font-size:14px;"><strong>Tischnummer:</strong> ${data.tableId}</li>
+            <li style="margin-bottom:0.75rem; font-size:14px;"><strong>Name:</strong> ${data.firstName} ${data.lastName}</li>
+            <li style="margin-bottom:0.75rem; font-size:14px;"><strong>Kunden Notiz:</strong> ${data.customerNote}</li>
+          </ul>
+        </div>
+      </div>
     `;
 
     // Message object
@@ -112,7 +139,14 @@ async function sendConfirmedReservation(data) {
       to: 'Recipient <recipient@example.com>',
       subject: 'Nodemailer is unicode friendly ✔',
       text: 'Webtechquila und so  ',
-      html: html
+      html: html,
+      attachments: [
+        {
+          filename: 'Reservierung.ics',
+          content: icsFile,
+          contentType: 'text/calendar'
+        }
+      ]
     };
 
     transporter.sendMail(message, (err, info) => {
