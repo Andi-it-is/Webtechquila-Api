@@ -355,12 +355,11 @@ appRouter.post(`${baseURL}/init/checkoutAttempt`, async (req, res) => {
       customerNote: body.customerNote,
     })
 
-    // send email with the auth URL
-    // if smtp wont work, just send it with the body
-    // ! adjust with prod working infos
     const url = `http://localhost:9000/#/order/confirm?rid=${reservation.reservationId}&aid=${reservationEntry.checkoutAttemptId}`
-    Logger.info("Sending Auth Reservation URL Mail")
-    const mail = await sendAuthReservationURL(url)
+
+    // Logger.info("Sending Auth Reservation URL Mail")
+    // this is the first email that would be sent
+    // const mail = await sendAuthReservationURL(url)
 
     res.status(200).json({
       success: true,
@@ -422,9 +421,9 @@ appRouter.get(`${baseURL}/confirm/checkoutAttempt`, async (req, res) => {
       customerNote: reservation.reservation.customerNote
     }
 
-    // ! send summary email
-    Logger.info("Sending Confirmed Reservation Mail")
-    const mail = await sendConfirmedReservation(keyInformations)
+    // this is the second email that would be sent
+    // Logger.info("Sending Confirmed Reservation Mail")
+    // const mail = await sendConfirmedReservation(keyInformations)
 
 
     res.status(200).json({
