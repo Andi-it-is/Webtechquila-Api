@@ -77,7 +77,6 @@ appRouter.post(`${baseURL}/timeslots`, async (req, res) => {
     // cast german date to iso 8601
     const isoDate = toIsoDate(body.date)
 
-    // ! only check with email-confirmed Reservations 
     const allReservations = await reservationModel.findAll({
       where: {
         date: isoDate
