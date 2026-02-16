@@ -1,3 +1,7 @@
+## Datenbankschema des Projekts
+![ADatenbankschema](Datenbankschema.png)
+
+
 ## Projekt starten
 docker compose up -d --build
 
